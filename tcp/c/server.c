@@ -31,7 +31,7 @@ int GetLastError();
 char* GetTimeString();
 
 /* member value */
-const char *pServerHost = "127.0.0.1";
+const char *pServerHost = "0.0.0.0";
 const unsigned short serverPort = 32015;
 char timeStringBuffer[64] = {0};
 
@@ -132,6 +132,7 @@ int main(int argc, char **argv)
                 left = left - sz;
                 printf("%s send success (%d)\n", GetTimeString(), sz);
             }
+            usleep(1000);
         }
 
         close(client);
