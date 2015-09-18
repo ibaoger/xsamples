@@ -3,6 +3,7 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <arpa/inet.h>
@@ -11,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 /* load library */
 #ifdef _WIN32
@@ -26,10 +28,12 @@
 
 /* pre declare */
 int GetLastError();
+char* GetTimeString();
 
 /* member value */
 const char *pServerHost = "127.0.0.1";
 const unsigned short serverPort = 32015;
+char timeStringBuffer[64] = {0};
 
 int main(int argc, char **argv)
 {
@@ -54,28 +58,28 @@ int main(int argc, char **argv)
     /* Win32 is INVALID_SOCKET */
     if (sock == SOCKET_ERROR) {
         int err = GetLastError();
-        printf("create socket error (%d), %s\n", err, strerror(err));
+        printf("%s create socket error (%d), %s\n", GetTimeString(), err, strerror(err));
         /* Linux (/usr/include/sysexits.h) */
         exit(0);
     }
-    printf("create socket success\n");
+    printf("%s create socket success\n", GetTimeString());
 
     rc = bind(sock, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
     if (rc == -1) {
         int err = GetLastError();
-        printf("bind error (%d), %s\n", err, strerror(err));
+        printf("%s bind error (%d), %s\n", GetTimeString(), err, strerror(err));
         exit(0);
     }
-    printf("bind success\n");
+    printf("%s bind success\n", GetTimeString());
 
 #define MAX_CONN 1024
     rc = listen(sock, MAX_CONN);
     if (rc == -1) {
         int err = GetLastError();
-        printf("listen error (%d), %s\n", err, strerror(err));
+        printf("%s listen error (%d), %s\n", GetTimeString(), err, strerror(err));
         exit(0);
     }
-    printf("listen success\n");
+    printf("%s listen success\n", GetTimeString());
 
 #define BUF_LEN 128
     char buf[BUF_LEN] = {0};
@@ -89,42 +93,45 @@ int main(int argc, char **argv)
         client = accept(sock, (struct sockaddr *)&clientAddr, (socklen_t *)&addrLen);
         if (client == -1) {
             int err = GetLastError();
-            printf("accept error (%d), %s\n", err, strerror(err));
+            printf("%s accept error (%d), %s\n", GetTimeString(), err, strerror(err));
             usleep(1000);
             continue;
         }
-        printf("accept success, client (%d) %s:%d\n", client, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+        printf("%s accept success, client (%d) %s:%d\n", GetTimeString(), client, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 
-        int sz;
-
-        sz = recv(client, buf, BUF_LEN, flags);
-        if (sz == -1) {
-            int err = GetLastError();
-            printf("recv error (%d), %s\n", err, strerror(err));
-            usleep(1000);
-            continue;
-        } else if (sz == 0) {
-            int err = GetLastError();
-            printf("recv error (%d), %s\n", err, strerror(err));
-            usleep(1000);
-            continue;
-        }
-        printf("recv success (%d)\n", sz);
-
-        int left = BUF_LEN;
-        while (left > 0) {
-            sz = send(client, buf, left, flags);
+        while (1) {
+            int sz;
+            sz = recv(client, buf, BUF_LEN, flags);
             if (sz == -1) {
                 int err = GetLastError();
-                printf("send error (%d), %s\n", err, strerror(err));
+                printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
                 break;
             } else if (sz == 0) {
+                /* receive 0 bytes, or socket peer has shutdown */
                 int err = GetLastError();
-                printf("send error (%d), %s\n", err, strerror(err));
+                printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
+                usleep(1000);
                 break;
             }
-            left = left - sz;
-            printf("send success (%d)\n", sz);
+            printf("%s recv success (%d)\n", GetTimeString(), sz);
+
+            int left = BUF_LEN;
+            while (left > 0) {
+                sz = send(client, buf, left, flags);
+                if (sz == -1) {
+                    /* error */
+                    int err = GetLastError();
+                    printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+                    break;
+                } else if (sz == 0) {
+                    /* ??? */
+                    int err = GetLastError();
+                    printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+                    break;
+                }
+                left = left - sz;
+                printf("%s send success (%d)\n", GetTimeString(), sz);
+            }
         }
 
         close(client);
@@ -134,8 +141,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-int GetLastError()
-{
+int GetLastError() {
     int err;
 #ifdef _WIN32
     err = WSAGetLastError();
@@ -143,4 +149,20 @@ int GetLastError()
     err = errno;
 #endif
     return err;
+}
+
+char* GetTimeString() {
+    /* get local time, without ms */
+    time_t utcDate;
+    time(&utcDate);
+	struct tm *localDate;
+    localDate = localtime(&utcDate);
+    /* get ms time */
+	struct timeval tv;
+	int tv_ms;
+	gettimeofday(&tv, NULL);
+	tv_ms = tv.tv_usec/1000;
+    
+	sprintf(timeStringBuffer, "%d-%d %d:%d:%d.%d", localDate->tm_mon+1, localDate->tm_mday, localDate->tm_hour, localDate->tm_min, localDate->tm_sec, tv_ms);
+    return (char*)&timeStringBuffer;
 }
