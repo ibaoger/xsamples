@@ -258,3 +258,8 @@ FakesAssemblies/
 **/*.Server/GeneratedArtifacts
 **/*.Server/ModelManifest.xml
 _Pvt_Extensions
+
+
+## Ignore mac temp file
+.DS_Store
+
