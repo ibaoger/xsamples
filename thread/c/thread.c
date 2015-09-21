@@ -1,11 +1,11 @@
 /***************************************************************
 
- * Ä£  ¿é£ºxsamples
- * ÎÄ  ¼ş£ºthread.c
- * ¹¦  ÄÜ£º¶àÏß³ÌÊ¾Àı£»Éú²úÕßÏû·ÑÕßÄ£ĞÍ£»
- * ×÷  Õß£º°¢±¦£¨Po£©
- * ÈÕ  ÆÚ£º2015-09-21
- * °æ  È¨£ºCopyright (c) 2012-2014 Dream Company
+ * æ¨¡  å—ï¼šxsamples
+ * æ–‡  ä»¶ï¼šthread.c
+ * åŠŸ  èƒ½ï¼šå¤šçº¿ç¨‹ç¤ºä¾‹ï¼›ç”Ÿäº§è€…æ¶ˆè´¹è€…æ¨¡å‹ï¼›
+ * ä½œ  è€…ï¼šé˜¿å®ï¼ˆPoï¼‰
+ * æ—¥  æœŸï¼š2015-09-21
+ * ç‰ˆ  æƒï¼šCopyright (c) 2012-2014 Dream Company
 
 ***************************************************************/
 
@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 
 
 /* load library */
@@ -20,18 +25,25 @@
 /* macro define */
 
 /* pre declare */
+int GetLastError();
 char* GetTimeString();
+void *producterThread (void *argv);
+void *customerThread(void *argv);
 
 /* member value */
+int poolSize = 1024;
+int productPool[1024] = {0};
+int poolOffset = 0;
+char timeStringBuffer[64] = {0};
 
 int main(int argc, char **argv)
 {
     int rc;
     int err;
-    int thd;
-    int thd2;
+    pthread_t thd;
+    pthread_t thd2;
     pthread_attr_t attr;
-    /* attr µÄÓÃ´¦»¹Ã»ÓĞ¸ãÇå³ş£¿ */
+    /* attr çš„ç”¨å¤„è¿˜æ²¡æœ‰ææ¸…æ¥šï¼Ÿ */
     rc = pthread_attr_init(&attr);
     if (rc != 0)
     {
@@ -57,27 +69,74 @@ int main(int argc, char **argv)
         printf("%s create customer thread failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
 
+    rc = pthread_join(thd, NULL);
+    if (rc != 0) {
+        err = GetLastError();
+        printf("%s join thread failed (%d), %s\n", GetTimeString(), err, strerror(err));
+    }
+
+    rc = pthread_join(thd2, NULL);
+    if (rc != 0) {
+        err = GetLastError();
+        printf("%s join thread failed (%d), %s\n", GetTimeString(), err, strerror(err));
+    }
+
     pthread_attr_destroy(&attr);
 
 	return 0;
 }
 
-/* Éú²úÕßÏß³Ì */
+/* ç”Ÿäº§è€…çº¿ç¨‹ */
 void *producterThread (void *argv)
 {
-    while (true)
+    //struct thread_info *thdinfo = argv;
+    //printf("thread id (%d) name (%s)\n", thdinfo->thread_num, thdinfo->argv_string);
+
+    while (1)
     {
-        usleep(1000);
+        if (poolOffset < poolSize - 1) {
+            int product = rand();
+            printf("pool length (%d), push (%d)\n", poolOffset, product);
+            productPool[poolOffset] = product;
+            poolOffset++;
+        } else {
+            printf("pool length (%d), full, sleep\n", poolOffset);
+            usleep(3000000);
+        }
+        usleep(900000);
     }
 }
 
-/* Ïû·ÑÕßÏß³Ì */
+/* æ¶ˆè´¹è€…çº¿ç¨‹ */
 void *customerThread(void *argv)
 {
-    while (true)
+    //struct thread_info *thdinfo = argv;
+    //printf("thread id (%d) name (%s)\n", thdinfo->thread_num, thdinfo->argv_string);
+
+    while (1)
     {
-        usleep(1000);
+        if (poolOffset > 1) {
+            int product = productPool[poolOffset - 1];
+            printf("pool length (%d), pull (%d)\n", poolOffset, product);
+            productPool[poolOffset] = 0;
+            poolOffset--;
+        } else {
+            printf("pool length (%d), empty, sleep\n", poolOffset);
+            usleep(5000000);
+        }
+        usleep(1200000);
     }
+}
+
+int GetLastError()
+{
+    int err;
+#ifdef _WIN32
+    err = WSAGetLastError();
+#else
+    err = errno;
+#endif
+    return err;
 }
 
 char* GetTimeString() {
