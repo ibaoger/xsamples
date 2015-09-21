@@ -1,31 +1,42 @@
-##ʹ��˵��
+##使用说明
 
-1��ģ��ͻ������ӳ�ʱ
-ԭ����ʹ�÷���ǽ iptables ģ�� SYN ����ʧ��
-���ã�
+1）模拟客户端连接超时
+原理：使用防火墙 iptables 模拟 SYN 包丢失。
+设置：
 iptables -A OUTPUT -p tcp -m tcp --tcp-flags SYN SYN --sport 32015 -j DROP
-�鿴��
+或
+iptables -A INPUT -p tcp -m tcp --tcp-flags SYN SYN --dport 32015 -j DROP
+查看：
 iptables -L
-��������ǽ��
+启动防火墙：
 service iptables start
-�鿴����ǽ״̬��
+查看防火墙状态：
 service iptables status
-�ָ���
+恢复：
 iptables -D OUTPUT -p tcp -m tcp --tcp-flags SYN SYN --sport 32015 -j DROP
+iptables -D INPUT -p tcp -m tcp --tcp-flags SYN SYN --dport 32015 -j DROP
 
 
-2��ģ��ͻ��˷��ͳ�ʱ
-ԭ����ʹ�÷���ǽ iptables ģ�� PSH ����ʧ��
-���ã�
+2）模拟客户端接收超时
+原理：使用防火墙 iptables 模拟 PSH 包丢失。
+设置：
 iptables -A OUTPUT -p tcp -m tcp --tcp-flags PSH PSH --sport 32015 -j DROP
-�鿴��
-iptables -L
-�ָ���
-iptables -D OUTPUT -p tcp -m tcp --tcp-flags PSH PSH --sport 32015 -j DROP
 
 
+3）模拟客户端发送超时
+原理：使用防火墙 iptables 模拟 PSH 包丢失。
+设置：
+iptables -A INPUT -p tcp -m tcp --tcp-flags PSH PSH --dport 32015 -j DROP
 
 
-�ο��ĵ���
-�򵥼���ģ�����糬ʱ��� http://www.xiaozhangwx.com/blog/archives/73
-����¼ doc/�򵥼���ģ�����糬ʱ���.mht��
+4）TCP超时测试用例
+环境：ECS1运行 server，ECS2运行 client；
+4.1 无任何设置：双向通信正常
+4.2 ECS1模拟客户端连接超时：当client不强制关闭时，超时10秒后断开；当client强制3秒关闭时，第3秒准时断开；
+4.3 ECS1模拟客户端接收超时：当client不强制关闭时，超时10秒后断开；当client强制3秒关闭时，第3秒准时断开；
+4.4 ECS1模拟客户端发送超时：当client不强制关闭时，超时10秒后断开；当client强制3秒关闭时，第3秒准时断开；
+
+
+参考文档：
+简单几招模拟网络超时情况 http://www.xiaozhangwx.com/blog/archives/73
+（收录 doc/简单几招模拟网络超时情况.mht）
