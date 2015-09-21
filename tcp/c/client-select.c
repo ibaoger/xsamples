@@ -1,3 +1,14 @@
+/***************************************************************
+
+* 模  块：xsamples
+* 文  件：client.c
+* 功  能：网络通讯客户端程序，阻塞、有超时。
+* 作  者：阿宝（Po）
+* 日  期：2015-09-21
+* 版  权：Copyright (c) 2012-2014 Dream Company
+
+***************************************************************/
+
 #ifdef _WIN32
 #include <Winsock2.h>
 #else
@@ -5,6 +16,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #endif //_WIN32 && unix
@@ -33,13 +45,14 @@ char* GetTimeString();
 int IsConnectedNonblock(int s, fd_set *rd, fd_set *wr, fd_set *ex);
 
 /* member value */
-const char *pServerHost = "127.0.0.1";
+const char *pServerHost = "121.199.44.166";
 const unsigned short serverPort = 32015;
 char timeStringBuffer[64] = { 0 };
 
 int main(int argc, char **argv)
 {
     int rc;
+    int err;
     int sock;
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
@@ -68,9 +81,6 @@ int main(int argc, char **argv)
     printf("%s create socket success\n", GetTimeString());
 
     /* set socket nonblock */
-    fd_set rdevents;
-    fd_set wrevents;
-    fd_set exevents;
     int flags = fcntl(sock, F_GETFL, 0);
     if (flags < 0) {
         int err = GetLastError();
@@ -83,21 +93,26 @@ int main(int argc, char **argv)
         }
     }
 
+    /* connect */
     rc = connect(sock, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-    if (rc == -1 && GetLastError() != EINPROGRESS) {
-        int err = GetLastError();
+    err = GetLastError();
+    if (rc == -1 && err != EINPROGRESS) {
+        err = GetLastError();
         printf("%s connect error (%d), %s\n", GetTimeString(), err, strerror(err));
         close(sock);
         return 0;
     }
 
     /* selcet connect */
-    FD_ZERO(&rdevents);
-    FD_SET(sock, &rdevents);
-    wrevents = rdevents;
-    exevents = rdevents;
-    struct timeval conntv = { 3, 0 };
-    rc = select(sock + 1, &rdevents, &wrevents, &exevents, &conntv);
+    fd_set connRDfd;
+    fd_set connWRfd;
+    fd_set connEXfd;
+    FD_ZERO(&connRDfd);
+    FD_SET(sock, &connRDfd);
+    connWRfd = connRDfd;
+    connEXfd = connRDfd;
+    struct timeval conntv = { 10, 0 };
+    rc = select(sock + 1, &connRDfd, &connWRfd, &connEXfd, &conntv);
     if (rc < 0) {
         int err = GetLastError();
         printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
@@ -106,7 +121,8 @@ int main(int argc, char **argv)
         printf("%s connect time out (%d), %s\n", GetTimeString(), err, strerror(err));
         close(sock);
         return 0;
-    } else if (IsConnectedNonblock(sock, &rdevents, &wrevents, &exevents)) {
+    }
+    else if (IsConnectedNonblock(sock, &connRDfd, &connWRfd, &connEXfd)) {
         printf("%s connect success\n", GetTimeString());
     } else {
         int err = GetLastError();
@@ -115,6 +131,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    /* set socket block */
     if (fcntl(sock, F_SETFL, flags) < 0) {
         int err = GetLastError();
         printf("%s set socket flags failed (%d), %s\n", GetTimeString(), err, strerror(err));
@@ -140,21 +157,26 @@ int main(int argc, char **argv)
 #define BUF_LEN 128
     char buf[BUF_LEN] = { 0 };
     /* With a zero flags, send() is equivalent to write() */
+    /* With a zero flags, recv() is equivalent to read() */
     flags = 0;
+    /* selcet send & recv */
+    fd_set sendRDfd;
+    fd_set sendWRfd;
+    fd_set sendEXfd;
+    FD_ZERO(&sendRDfd);
     while (1) {
         int left = BUF_LEN;
         int sz;
 
         while (left > 0) {
             sz = send(sock, buf, left, flags);
+            err = GetLastError();
             if (sz == -1) {
                 /* error */
-                int err = GetLastError();
                 printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
                 break;
             } else if (sz == 0) {
                 /* ??? */
-                int err = GetLastError();
                 printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
                 break;
             }

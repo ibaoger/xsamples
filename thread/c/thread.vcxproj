@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{D0895436-1CAF-4E38-991A-089B0DF8579B}</ProjectGuid>
-    <RootNamespace>tcp</RootNamespace>
+    <ProjectGuid>{011C2153-5AD1-454E-B8F6-3A07BA70A602}</ProjectGuid>
+    <RootNamespace>thread</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -64,10 +64,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="client-select-nonblock.c" />
-    <ClCompile Include="client-select.c" />
-    <ClCompile Include="client.c" />
-    <ClCompile Include="server.c" />
+    <ClCompile Include="thread.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -15,16 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="client.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="server.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="client-select.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="client-select-nonblock.c">
+    <ClCompile Include="thread.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
