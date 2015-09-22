@@ -1,11 +1,11 @@
 /***************************************************************
 
- * Ä£  ¿é£ºxsamples
- * ÎÄ  ¼ş£ºgethostbyname-nonblock.c
- * ¹¦  ÄÜ£ºDNS½âÎö£¬·Ç×èÈû£¬³¬Ê±
- * ×÷  Õß£º°¢±¦£¨Po£©
- * ÈÕ  ÆÚ£º2015-09-22
- * °æ  È¨£ºCopyright (c) 2012-2014 Dream Company
+ * æ¨¡  å—ï¼šxsamples
+ * æ–‡  ä»¶ï¼šgethostbyname-nonblock.c
+ * åŠŸ  èƒ½ï¼šDNSè§£æï¼Œéé˜»å¡ï¼Œè¶…æ—¶
+ * ä½œ  è€…ï¼šé˜¿å®ï¼ˆPoï¼‰
+ * æ—¥  æœŸï¼š2015-09-22
+ * ç‰ˆ  æƒï¼šCopyright (c) 2012-2014 Dream Company
 
 ***************************************************************/
 
@@ -18,11 +18,10 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "tadns/tadns.h"
 
 /* load library */
 #ifdef _WIN32
-#pragma comment£¨lib£¬"Ws2_32.lib"£©
+#pragma commentï¼ˆlibï¼Œ"Ws2_32.lib"ï¼‰
 #endif //_WIN32
 
 /* macro define */
@@ -39,7 +38,7 @@ struct timezone
 };
 #else
 #endif //_WIN32
-#define MAX_IP_LEN 16
+#define MAX_IP_LEN 24
 
 /* pre declare */
 #ifdef _WIN32
@@ -53,6 +52,7 @@ char* GetTimeString();
 /* member value */
 const char dnsHost[] = "114.114.114.114";
 const char dnsHostBack[] = "8.8.8.8";
+const int dnsPort = 53;
 struct timeval sockTimeo = { 30, 0 };
 char timeStringBuffer[64] = { 0 };
 
@@ -67,25 +67,10 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-static void dns_callback(void *context, enum dns_query_type qtype,
-    const char *name, const unsigned char *addr, size_t addrlen)
-{
-    if (addrlen == 0) {
-        (void)fprintf(stderr, "No idea about [%s]\n", name);
-    }
-    else {
-        //char *pIP = (int *)context;
-        //int *pLen = (int *)context + 1;
-        printf("%u.%u.%u.%u\n", addr[0], addr[1], addr[2], addr[3]);
-        //sprintf(pIP, "%u.%u.%u.%u", addr[0], addr[1], addr[2], addr[3]);
-        //(*pLen) = strlen(pIP);
-    }
-}
-
 /**
- * ½Ó¿Ú¹¦ÄÜ£ºÓòÃû½âÎö
- * ²Î    Êı£º
- * ·µ »Ø Öµ£º0 ³É¹¦/ ·Ç0 Ê§°Ü
+ * æ¥å£åŠŸèƒ½ï¼šåŸŸåè§£æ
+ * å‚    æ•°ï¼š
+ * è¿” å› å€¼ï¼š0 æˆåŠŸ/ é0 å¤±è´¥
  **/
 int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
 {
@@ -96,45 +81,149 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
         printf("%s input arguments error\n", GetTimeString());
         return -1;
     }
-    struct dns	*dns;
+    char reqBuf[512] = {0};
+    int reqLen = 0;
+    char resBuf[512] = {0};
+    int resLen = 0;
+    
+    // request package
+    // sign flag questions resources authors ext
+    unsigned short int sign = (unsigned short int)rand();
+    unsigned short int flag = 0x10;
+    unsigned short int questions = 1;
+    unsigned short int resources = 0;
+    unsigned short int authors = 0;
+    unsigned short int exts = 0;
+    
+    char *pos = reqBuf;
+    memcpy(pos, &sign, sizeof(sign));
+    memcpy(pos, &flag, sizeof(flag));
+    memcpy(pos, &questions, sizeof(questions));
+    memcpy(pos, &resources, sizeof(resources));
+    memcpy(pos, &authors, sizeof(authors));
+    memcpy(pos, &exts, sizeof(exts));
+    pos += 12;
+    
+    int domainLen = strlen(pszDomain);
+    if (domainLen <= 0) {
+        printf("%s domain name error\n", GetTimeString());
+        return -1;
+    }
+    
+    char dot = '.';
+    char *domainPos = pszDomain;
+    unsigned short int sliceLen = 0;
+    while (1) {
+        if (domainLen <= 0) {
+            break;
+        }
+        sliceLen = 0;
+        for (int i = 0; i < domainLen; i++) {
+            if (domainPos[i] == dot) {
+                if (sliceLen == 0) {
+                    break;
+                } else {
+                }
+            } else {
+                sliceLen++;
+            }
+        }
+        
+        if (sliceLen > 0) {
+            // add to request buffer
+            pos[0] = sliceLen;
+            pos += 1;
+            memcpy(pos, domainPos, sliceLen);
+            pos += sliceLen;
+            // move pos, change length
+            domainPos += sliceLen;
+            domainLen -= sliceLen;
+            
+        }
+        if (domainPos[0] == dot) {
+            domainPos += 1;
+            domainLen -= 1;
+        }
+    }
+    
+    if (pos - reqBuf <= 12) {
+        printf("%s domain name error\n", GetTimeString());
+        return -1;
+    }
+    
+    // end of domain
+    pos[0] = 0;
+    pos += 1;
+    
+    unsigned short int requesttype = 1;
+    unsigned short int requestclass = 1;
+    memcpy(pos, &requesttype, sizeof(requesttype));
+    pos += 2;
+    memcpy(pos, &requestclass, sizeof(requestclass));
+    pos += 2;
+    
+    // new socket
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+    
+    // nonblock socket
+    int sock = socket(AF_INET, SOCK_DGRAM, 17);
+    if (sock == SOCKET_ERROR) {
+        err = GetLastError();
+        printf("%s create socket error (%d), %s\n", GetTimeString(), err, strerror(err));
+        close(sock);
+        return -1;
+    }
+    printf("%s create socket success\n", GetTimeString());
+    
+    // select socket
+    bool readytosend = false;
     fd_set rdset;
+    fd_set wrset;
     fd_set exset;
-    dns = dns_init();
-    int sock = dns_get_fd(dns);
-
-    FD_ZERO(&rdset);
+    FD_ZERO(&wrset);
     FD_ZERO(&exset);
-    FD_SET(sock, &rdset);
+    FD_SET(sock, &wrset);
     FD_SET(sock, &exset);
-
-    int usrData[2];
-    usrData[0] = ppIP;
-    usrData[1] = &pLen;
-
-    //dns_queue(dns, (void*)usrData, pszDomain, DNS_A_RECORD, dns_callback);
-    dns_queue(dns, NULL, pszDomain, DNS_A_RECORD, dns_callback);
-    rc = select(sock + 1, &rdset, NULL, &exset, &sockTimeo);
+    struct timeval sockTimeo = {timeo.tv_sec/2, timeo.tv_usec/2};
+    rc = select(sock + 1, NULL, &wrset, &exset, &sockTimeo);
     if (rc < 0) {
         err = GetLastError();
         printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
     else if (rc == 0) {
         err = GetLastError();
-        printf("%s dns time out (%d), %s\n", GetTimeString(), err, strerror(err));
+        printf("%s select time out (%d), %s\n", GetTimeString(), err, strerror(err));
     }
-    else if (FD_ISSET(sock, &rdset) && !FD_ISSET(sock, &exset)) {
-        dns_poll(dns);
-        printf("%s dns success\n", GetTimeString());
-        dns_fini(dns);
-        return 0;
+    else if (FD_ISSET(sock, &wrset) && !FD_ISSET(sock, &exset)) {
+        printf("%s select success\n", GetTimeString());
+        readytosend = true;
     }
     else {
         err = GetLastError();
-        printf("%s dns failed (%d), %s\n", GetTimeString(), err, strerror(err));
-        return -1;
+        printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
+    
+    if (readytosend) {
+        //send to
+        struct sockaddr_in svrAddr;
+        memset(&svrAddr, 0, sizeof(sockaddr_in));
+        int addr_len = sizeof(sockaddr);
+        svrAddr.sin_family = AF_INET;
+        svrAddr.sin_port = htons(m_uDNSPort);
+#ifdef _WIN32
+        svrAddr.sin_addr.S_un.S_addr = inet_addr(dnsHost);
+#else
+        inet_aton(dnsHost, (struct in_addr *)&vrAddr.sin_addr.S_un.S_addr);
+#endif //_WIN32
+        
+        //sendto(m_sock, m_pData, m_uDataLen, 0, (sockaddr*)&svrAddr, addr_len)
+    }
+    
+    // server not answer, select again
 
-    dns_fini(dns);
     return -1;
 }
 
@@ -144,7 +233,7 @@ int GetLastError()
 {
     return errno;
 }
-#endif
+#endif //_WIN32
 
 #ifdef _WIN32
 int gettimeofday(struct timeval *tv, struct timezone *tz)
