@@ -1,11 +1,11 @@
 /***************************************************************
 
- * Ê®°  ÂùóÔºöxsamples
- * Êñá  ‰ª∂Ôºögethostbyname-nonblock.c
- * Âäü  ËÉΩÔºöDNSËß£ÊûêÔºåÈùûÈòªÂ°ûÔºåË∂ÖÊó∂
- * ‰Ωú  ËÄÖÔºöÈòøÂÆùÔºàPoÔºâ
- * Êó•  ÊúüÔºö2015-09-22
- * Áâà  ÊùÉÔºöCopyright (c) 2012-2014 Dream Company
+ * ƒ£  øÈ£∫xsamples
+ * Œƒ  º˛£∫gethostbyname-nonblock.c
+ * π¶  ƒ‹£∫DNSΩ‚Œˆ£¨∑«◊Ë»˚£¨≥¨ ±
+ * ◊˜  ’ﬂ£∫∞¢±¶£®Po£©
+ * »’  ∆⁄£∫2015-09-22
+ * ∞Ê  »®£∫Copyright (c) 2012-2014 Dream Company
 
 ***************************************************************/
 
@@ -15,13 +15,15 @@
 #else
 #include <unistd.h>
 #endif //_WIN32
-#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <time.h>
+#include <fcntl.h>
 
 /* load library */
 #ifdef _WIN32
-#pragma commentÔºàlibÔºå"Ws2_32.lib"Ôºâ
+#pragma comment(lib, "Ws2_32.lib")
 #endif //_WIN32
 
 /* macro define */
@@ -59,8 +61,8 @@ char timeStringBuffer[64] = { 0 };
 int main(int argc, char **argv)
 {
     int len;
-    char host[MAX_IP_LEN];
-    char *pszDomain = "heysound.com";
+    char host[MAX_IP_LEN] = {0};
+    char *pszDomain = "baidu.com";
     len = 0;
     memset(host, 0, MAX_IP_LEN);
     GetHostByName(pszDomain, sockTimeo, &host, &len);
@@ -68,9 +70,9 @@ int main(int argc, char **argv)
 }
 
 /**
- * Êé•Âè£ÂäüËÉΩÔºöÂüüÂêçËß£Êûê
- * ÂèÇ    Êï∞Ôºö
- * Ëøî Âõû ÂÄºÔºö0 ÊàêÂäü/ Èùû0 Â§±Ë¥•
+ * Ω”ø⁄π¶ƒ‹£∫”Ú√˚Ω‚Œˆ
+ * ≤Œ     ˝£∫
+ * ∑µ ªÿ ÷µ£∫0 ≥…π¶/ ∑«0  ß∞‹
  **/
 int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
 {
@@ -81,31 +83,27 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
         printf("%s input arguments error\n", GetTimeString());
         return -1;
     }
-    char reqBuf[512] = {0};
+#define MAX_BUF_LEN 512
+    char reqBuf[MAX_BUF_LEN] = { 0 };
     int reqLen = 0;
-    char resBuf[512] = {0};
+    char resBuf[MAX_BUF_LEN] = { 0 };
     int resLen = 0;
+    char *pIP = ppIP;
     
     // request package
     // sign flag questions resources authors ext
+    const int headerLen = 12;
     unsigned short int sign = (unsigned short int)rand();
-    unsigned short int flag = 0x10;
-    unsigned short int questions = 1;
-    unsigned short int resources = 0;
-    unsigned short int authors = 0;
-    unsigned short int exts = 0;
     
     char *pos = reqBuf;
-    memcpy(pos, &sign, sizeof(sign));
-    memcpy(pos, &flag, sizeof(flag));
-    memcpy(pos, &questions, sizeof(questions));
-    memcpy(pos, &resources, sizeof(resources));
-    memcpy(pos, &authors, sizeof(authors));
-    memcpy(pos, &exts, sizeof(exts));
-    pos += 12;
+    pos[0] = (sign & 0xFF00) >> 8;
+    pos[1] = sign & 0xFF;
+    pos[2] = 1; //recursion desired
+    pos[5] = 1; //questions
+    pos += headerLen;
     
     int domainLen = strlen(pszDomain);
-    if (domainLen <= 0) {
+    if (domainLen < 3) {
         printf("%s domain name error\n", GetTimeString());
         return -1;
     }
@@ -113,53 +111,43 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
     char dot = '.';
     char *domainPos = pszDomain;
     unsigned short int sliceLen = 0;
-    while (1) {
-        if (domainLen <= 0) {
-            break;
-        }
-        sliceLen = 0;
-        for (int i = 0; i < domainLen; i++) {
-            if (domainPos[i] == dot) {
-                if (sliceLen == 0) {
-                    break;
-                } else {
-                }
-            } else {
-                sliceLen++;
+    int i = 0;
+    while (i < domainLen) {
+        bool isdot = false;
+        if (domainPos[0] == dot) {
+            isdot = true;
+            if (sliceLen == 0) {
+                printf("%s domain name error\n", GetTimeString());
+                return -1;
             }
+        } else {
+            isdot = false;
+            sliceLen++;
+            domainPos++;
         }
-        
-        if (sliceLen > 0) {
-            // add to request buffer
+        i++;
+
+        if (isdot || i == domainLen)
+        {
+            // slice length
             pos[0] = sliceLen;
             pos += 1;
-            memcpy(pos, domainPos, sliceLen);
+            // slice
+            memcpy(pos, domainPos - sliceLen, sliceLen);
             pos += sliceLen;
-            // move pos, change length
-            domainPos += sliceLen;
-            domainLen -= sliceLen;
-            
+            domainPos++;
+            sliceLen = 0;
         }
-        if (domainPos[0] == dot) {
-            domainPos += 1;
-            domainLen -= 1;
-        }
-    }
-    
-    if (pos - reqBuf <= 12) {
-        printf("%s domain name error\n", GetTimeString());
-        return -1;
     }
     
     // end of domain
     pos[0] = 0;
     pos += 1;
-    
-    unsigned short int requesttype = 1;
-    unsigned short int requestclass = 1;
-    memcpy(pos, &requesttype, sizeof(requesttype));
+    // request type
+    pos[1] = 1;  
     pos += 2;
-    memcpy(pos, &requestclass, sizeof(requestclass));
+    // request class
+    pos[1] = 1;  
     pos += 2;
     
     // new socket
@@ -168,8 +156,8 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
     WSAStartup(MAKEWORD(2, 2), &wsa);
 #endif
     
-    // nonblock socket
-    int sock = socket(AF_INET, SOCK_DGRAM, 17);
+    // socket
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == SOCKET_ERROR) {
         err = GetLastError();
         printf("%s create socket error (%d), %s\n", GetTimeString(), err, strerror(err));
@@ -177,6 +165,30 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
         return -1;
     }
     printf("%s create socket success\n", GetTimeString());
+
+    /* set socket nonblock */
+#ifdef _WIN32
+    u_long iMode = 1;
+    rc = ioctlsocket(sock, FIONBIO, &iMode); 
+    if (rc != NO_ERROR)
+    {
+        err = GetLastError();
+        printf("%s ioctl socket error (%d), %s\n", GetTimeString(), err, strerror(err));
+    }
+#else
+    int flags = fcntl(sock, F_GETFL, 0);
+    if (flags < 0) {
+        int err = GetLastError();
+        printf("%s get socket flags failed (%d), %s\n", GetTimeString(), err, strerror(err));
+    }
+    else {
+        if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+            int err = GetLastError();
+            printf("%s set socket flags failed (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+    }
+#endif
+    printf("%s set socket nonblock success\n", GetTimeString());
     
     // select socket
     bool readytosend = false;
@@ -209,17 +221,147 @@ int GetHostByName(char *pszDomain, struct timeval timeo, char **ppIP, int *pLen)
     if (readytosend) {
         //send to
         struct sockaddr_in svrAddr;
-        memset(&svrAddr, 0, sizeof(sockaddr_in));
-        int addr_len = sizeof(sockaddr);
+        memset(&svrAddr, 0, sizeof(svrAddr));
         svrAddr.sin_family = AF_INET;
-        svrAddr.sin_port = htons(m_uDNSPort);
+        svrAddr.sin_port = htons(dnsPort);
+        int addrlen = sizeof(svrAddr);
 #ifdef _WIN32
         svrAddr.sin_addr.S_un.S_addr = inet_addr(dnsHost);
 #else
         inet_aton(dnsHost, (struct in_addr *)&vrAddr.sin_addr.S_un.S_addr);
 #endif //_WIN32
         
-        //sendto(m_sock, m_pData, m_uDataLen, 0, (sockaddr*)&svrAddr, addr_len)
+        int sz = sendto(sock, reqBuf, (pos - reqBuf), 0, (struct sockaddr*)&svrAddr, addrlen);
+        err = GetLastError();
+        if (sz == -1) {
+            printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+        else if (sz == 0) {
+            printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+        printf("%s send success (%d)\n", GetTimeString(), sz);
+
+        // wait for recv
+        bool readytorecv = false;
+        FD_ZERO(&rdset);
+        FD_ZERO(&wrset);
+        FD_ZERO(&exset);
+        FD_SET(sock, &rdset);
+        FD_SET(sock, &exset);
+        rc = select(sock + 1, &rdset, NULL, &exset, &sockTimeo);
+        if (rc < 0) {
+            err = GetLastError();
+            printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+        else if (rc == 0) {
+            err = GetLastError();
+            printf("%s select time out (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+        else if (FD_ISSET(sock, &rdset) && !FD_ISSET(sock, &exset)) {
+            printf("%s select success\n", GetTimeString());
+            readytorecv = true;
+        }
+        else {
+            err = GetLastError();
+            printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
+        }
+
+        if (readytorecv)
+        {
+            sz = recvfrom(sock, resBuf, MAX_BUF_LEN, 0, (struct sockaddr*)&svrAddr, &addrlen);
+            if (sz == -1) {
+                err = GetLastError();
+                printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
+            }
+            else if (sz == 0) {
+                int err = GetLastError();
+                printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
+            }
+            else if (sz <= 12) {
+                printf("%s recv data size error (%d), %s\n", GetTimeString(), sz);
+            }
+            else {
+                printf("%s recv success (%d)\n", GetTimeString(), sz);
+
+                // analysis dns server's response
+                pos = resBuf;
+                unsigned short resID = ntohs(*(unsigned short*)pos);
+                if (resID == sign)
+                {
+                    printf("%s analysis match my request (%u)\n", GetTimeString(), resID);
+
+                    pos += headerLen;
+                    // read domain
+                    while (1)
+                    {
+                        int sliceLen = pos[0];
+                        pos++;
+                        if (sliceLen > 0)
+                        {
+                            pos += sliceLen;
+                        }
+                        else{
+                            break;
+                        }
+                    }
+                    // skip type (2B)
+                    pos += 2;
+                    // skip class (2B)
+                    pos += 2;
+                    // skip name (2B), what's name ?
+                    pos += 2;
+                    // type (2B)
+                    unsigned short resType = ntohs(*(unsigned short*)pos);
+                    pos += 2;
+                    // class (2B)
+                    unsigned short resClass = ntohs(*(unsigned short*)pos);
+                    pos += 2;
+                    // skip time to live (4B)
+                    pos += 4;
+                    // data length (2B)
+                    unsigned short resDataLen = ntohs(*(unsigned short*)pos);
+                    pos += 2;
+                    // address (4B)
+                    char addrSliceBuf[4] = { 0 };
+                    unsigned int addrSlice = (unsigned char)pos[0];
+                    pos++;
+                    sprintf(addrSliceBuf, "%u", addrSlice);
+                    memcpy(pIP, addrSliceBuf, strlen(addrSliceBuf));
+                    pIP += strlen(addrSliceBuf);
+                    pIP[0] = dot;
+                    pIP++;
+                    memset(addrSliceBuf, 0, 4);
+                    addrSlice = (unsigned char)pos[0];
+                    pos++;
+                    sprintf(addrSliceBuf, "%u", addrSlice);
+                    memcpy(pIP, addrSliceBuf, strlen(addrSliceBuf));
+                    pIP += strlen(addrSliceBuf);
+                    pIP[0] = dot;
+                    pIP++;
+                    memset(addrSliceBuf, 0, 4);
+                    addrSlice = (unsigned char)pos[0];
+                    pos++;
+                    sprintf(addrSliceBuf, "%u", addrSlice);
+                    memcpy(pIP, addrSliceBuf, strlen(addrSliceBuf));
+                    pIP += strlen(addrSliceBuf);
+                    pIP[0] = dot;
+                    pIP++;
+                    memset(addrSliceBuf, 0, 4);
+                    addrSlice = (unsigned char)pos[0];
+                    pos++;
+                    sprintf(addrSliceBuf, "%u", addrSlice);
+                    memcpy(pIP, addrSliceBuf, strlen(addrSliceBuf));
+                    pIP += strlen(addrSliceBuf);
+
+                    printf("%s analysis success (%s)\n", GetTimeString(), (*ppIP));
+                    // need only the first address, skip others
+                }
+
+                printf("%s analysis error, not match my request (%d)\n", GetTimeString(), resID);
+            }
+
+            return 0;
+        }
     }
     
     // server not answer, select again

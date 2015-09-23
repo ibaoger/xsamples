@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     }
     printf("%s create socket success\n", GetTimeString());
     
-    /* set socket nonblock or socket(,,17) */
+    /* set socket nonblock */
     int flags = fcntl(sock, F_GETFL, 0);
     if (flags < 0) {
         int err = GetLastError();
