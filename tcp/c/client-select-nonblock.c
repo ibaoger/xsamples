@@ -56,12 +56,6 @@ int main(int argc, char **argv)
 {
     int rc;
     int err;
-    if (pipe(g_uForceCloseFd) != 0)
-    {
-        g_uForceCloseFd[0] = -1;
-        err = GetLastError();
-        printf("%s create pipe failed (%d), %s\n", GetTimeString(), err, strerror(err));
-    }
 
     pthread_t thd;
     pthread_attr_t attr;
@@ -83,16 +77,13 @@ int main(int argc, char **argv)
         printf("%s create producter thread failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
     
-    sleep(6);
+    sleep(3);
     
-    if (g_uForceCloseFd[0] != -1)
-    {
-        printf("%s force close select\n", GetTimeString());
+    printf("%s force close select\n", GetTimeString());
+    
         close(g_uForceCloseFd[0]);
-    }
-    if (g_uForceCloseFd[1] != -1)
-        close(g_uForceCloseFd[1]);
-
+    printf("%s force close select\n", GetTimeString());
+    
     rc = pthread_join(thd, NULL);
     if (rc != 0) {
         err = GetLastError();
@@ -109,6 +100,15 @@ void *socketThread (void *argv)
     int rc;
     int err;
     int sock;
+    close(g_uForceCloseFd[0]);
+    close(g_uForceCloseFd[1]);
+    if (pipe(g_uForceCloseFd) != 0)
+    {
+        err = GetLastError();
+        printf("%s create pipe failed (%d), %s\n", GetTimeString(), err, strerror(err));
+    }
+    printf("%s pipe (%d)\n", GetTimeString(), g_uForceCloseFd[0]);
+    
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(serverPort);
@@ -163,15 +163,20 @@ void *socketThread (void *argv)
     fd_set socketWRfd;
     fd_set socketEXfd;
     FD_ZERO(&socketRDfd);
+    FD_ZERO(&socketWRfd);
+    FD_ZERO(&socketEXfd);
     FD_SET(sock, &socketRDfd);
     FD_SET(sock, &socketWRfd);
     FD_SET(sock, &socketEXfd);
     struct timeval timeo = { 10, 0 };
-    FD_SET(g_uForceCloseFd[0], &socketRDfd);
-    int fd = (g_uForceCloseFd[0] > sock) ? g_uForceCloseFd[0] : sock;
+    int readFd = g_uForceCloseFd[1];
+    FD_SET(readFd, &socketRDfd);
+    int fd = (readFd > sock) ? readFd : sock;
+    //int fd = readFd;
+    printf("%s select\n", GetTimeString());
     rc = select(fd + 1, &socketRDfd, &socketWRfd, &socketEXfd, &timeo);
     if (rc < 0) {
-        if (FD_ISSET(g_uForceCloseFd[0], &socketRDfd))
+        if (FD_ISSET(readFd, &socketRDfd))
             printf("%s connect wakeup by pipe\n", GetTimeString());
         int err = GetLastError();
         printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
@@ -186,11 +191,14 @@ void *socketThread (void *argv)
         printf("%s connect success\n", GetTimeString());
     }
     else {
+        if (FD_ISSET(readFd, &socketRDfd))
+            printf("%s connect wakeup by pipe\n", GetTimeString());
         int err = GetLastError();
         printf("%s connect failed (%d), %s\n", GetTimeString(), err, strerror(err));
         close(sock);
         return 0;
     }
+    printf("%s select\n", GetTimeString());
 
     /* set socket block */
     //if (fcntl(sock, F_SETFL, flags) < 0) {
@@ -231,12 +239,12 @@ void *socketThread (void *argv)
             FD_ZERO(&socketEXfd);
             FD_SET(sock, &socketWRfd);
             FD_SET(sock, &socketEXfd);
-            FD_SET(g_uForceCloseFd[0], &socketRDfd);
-            int fd = (g_uForceCloseFd[0] > sock) ? g_uForceCloseFd[0] : sock;
+            FD_SET(g_uForceCloseFd[1], &socketRDfd);
+            int fd = (g_uForceCloseFd[1] > sock) ? g_uForceCloseFd[1] : sock;
             rc = select(fd + 1, NULL, &socketWRfd, &socketEXfd, &timeo);
             if (rc < 0) {
-                if (FD_ISSET(g_uForceCloseFd[0], &socketRDfd))
-                    printf("%s send wakeup by pipe\n", GetTimeString());
+                if (FD_ISSET(g_uForceCloseFd[1], &socketRDfd))
+                    printf("%s pre-send wakeup by pipe\n", GetTimeString());
                 int err = GetLastError();
                 printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
                 close(sock);
@@ -252,6 +260,8 @@ void *socketThread (void *argv)
                 printf("%s pre-send success\n", GetTimeString());
             }
             else {
+                if (FD_ISSET(g_uForceCloseFd[1], &socketRDfd))
+                    printf("%s pre-send wakeup by pipe\n", GetTimeString());
                 int err = GetLastError();
                 printf("%s pre-send failed (%d), %s\n", GetTimeString(), err, strerror(err));
                 close(sock);
@@ -280,12 +290,12 @@ void *socketThread (void *argv)
         FD_ZERO(&socketEXfd);
         FD_SET(sock, &socketRDfd);
         FD_SET(sock, &socketEXfd);
-        FD_SET(g_uForceCloseFd[0], &socketRDfd);
-        int fd = (g_uForceCloseFd[0] > sock) ? g_uForceCloseFd[0] : sock;
+        FD_SET(g_uForceCloseFd[1], &socketRDfd);
+        int fd = (g_uForceCloseFd[1] > sock) ? g_uForceCloseFd[1] : sock;
         rc = select(fd + 1, &socketRDfd, NULL, &socketEXfd, &timeo);
         if (rc < 0) {
-            if (FD_ISSET(g_uForceCloseFd[0], &socketRDfd))
-                printf("%s recv wakeup by pipe\n", GetTimeString());
+            if (FD_ISSET(g_uForceCloseFd[1], &socketRDfd))
+                printf("%s pre-recv wakeup by pipe\n", GetTimeString());
             int err = GetLastError();
             printf("%s select failed (%d), %s\n", GetTimeString(), err, strerror(err));
             close(sock);
@@ -301,6 +311,8 @@ void *socketThread (void *argv)
             printf("%s pre-recv success\n", GetTimeString());
         }
         else {
+            if (FD_ISSET(g_uForceCloseFd[1], &socketRDfd))
+                printf("%s pre-recv wakeup by pipe\n", GetTimeString());
             int err = GetLastError();
             printf("%s pre-recv failed (%d), %s\n", GetTimeString(), err, strerror(err));
             close(sock);

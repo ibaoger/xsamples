@@ -66,6 +66,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="gethostbyname-nonblock.c" />
+    <ClCompile Include="gethostbyname.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gethostbyname.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

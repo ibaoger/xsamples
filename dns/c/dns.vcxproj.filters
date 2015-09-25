@@ -18,5 +18,13 @@
     <ClCompile Include="gethostbyname-nonblock.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="gethostbyname.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gethostbyname.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

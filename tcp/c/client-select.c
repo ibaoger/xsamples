@@ -46,8 +46,8 @@ int IsConnectedNonblock(int s, fd_set *rd, fd_set *wr, fd_set *ex);
 void *socketThread (void *argv);
 
 /* member value */
-const char *pServerHost = "121.199.44.166";
-const unsigned short serverPort = 32015;
+const char *pServerHost = "120.26.109.136";
+const unsigned short serverPort = 31935;
 char timeStringBuffer[64] = { 0 };
 
 int main(int argc, char **argv)
