@@ -1,3 +1,14 @@
+/***************************************************************
+
+ * 模  块：xsamples
+ * 文  件：client.c
+ * 功  能：网络通讯客户端程序，阻塞、无超时
+ * 作  者：阿宝（Po）
+ * 日  期：2015-09-21
+ * 版  权：Copyright (c) 2012-2014 Dream Company
+
+***************************************************************/
+
 #ifdef _WIN32
 #include <Winsock2.h>
 #else
@@ -163,7 +174,7 @@ char* GetTimeString() {
 	int tv_ms;
 	gettimeofday(&tv, NULL);
 	tv_ms = tv.tv_usec/1000;
-    
+
 	sprintf(timeStringBuffer, "%d-%d %d:%d:%d.%d", localDate->tm_mon+1, localDate->tm_mday, localDate->tm_hour, localDate->tm_min, localDate->tm_sec, tv_ms);
     return (char*)&timeStringBuffer;
 }

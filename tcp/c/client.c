@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "utils.h"
 
 /* load library */
 #ifdef _WIN32
@@ -38,8 +39,8 @@
 #endif //_WIN32 && unix
 
 /* pre declare */
-int GetLastError();
-char* GetTimeString();
+int get_socket_error();
+char* get_time_string();
 
 /* member value */
 const char *pServerHost = "127.0.0.1";
@@ -68,20 +69,20 @@ int main(int argc, char **argv)
     /* Linux is -1 */
     /* Win32 is INVALID_SOCKET */
     if (sock == SOCKET_ERROR) {
-        int err = GetLastError();
-        printf("%s create socket error (%d), %s\n", GetTimeString(), err, strerror(err));
+        int err = get_socket_error();
+        printf("%s create socket error (%d), %s\n", get_time_string(), err, strerror(err));
         /* Linux (/usr/include/sysexits.h) */
         exit(0);
     }
-    printf("%s create socket success\n", GetTimeString());
+    printf("%s create socket success\n", get_time_string());
 
     rc = connect(sock, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
     if (rc == -1) {
-        int err = GetLastError();
-        printf("%s connect error (%d), %s\n", GetTimeString(), err, strerror(err));
+        int err = get_socket_error();
+        printf("%s connect error (%d), %s\n", get_time_string(), err, strerror(err));
         exit(0);
     }
-    printf("%s connect success\n", GetTimeString());
+    printf("%s connect success\n", get_time_string());
 
 #define BUF_LEN 128
     char buf[BUF_LEN] = {0};
@@ -95,64 +96,37 @@ int main(int argc, char **argv)
             sz = send(sock, buf, left, flags);
             if (sz == -1) {
                 /* error */
-                int err = GetLastError();
-                printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+                int err = get_socket_error();
+                printf("%s send error (%d), %s\n", get_time_string(), err, strerror(err));
                 break;
             } else if (sz == 0) {
                 /* ??? */
-                int err = GetLastError();
-                printf("%s send error (%d), %s\n", GetTimeString(), err, strerror(err));
+                int err = get_socket_error();
+                printf("%s send error (%d), %s\n", get_time_string(), err, strerror(err));
                 break;
             }
             left = left - sz;
-            printf("%s send success (%d)\n", GetTimeString(), sz);
+            printf("%s send success (%d)\n", get_time_string(), sz);
         }
 
         sz = recv(sock, buf, BUF_LEN, flags);
         if (sz == -1) {
-            int err = GetLastError();
-            printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
+            int err = get_socket_error();
+            printf("%s recv error (%d), %s\n", get_time_string(), err, strerror(err));
             break;
         } else if (sz == 0) {
-            int err = GetLastError();
-            printf("%s recv error (%d), %s\n", GetTimeString(), err, strerror(err));
+            int err = get_socket_error();
+            printf("%s recv error (%d), %s\n", get_time_string(), err, strerror(err));
             break;
         }
-        printf("%s recv success (%d)\n", GetTimeString(), sz);
+        printf("%s recv success (%d)\n", get_time_string(), sz);
 
         usleep(1000);
     }
 
     if (sock) {
-        close(sock);
+        closesocket(sock);
     }
 
     return 0;
-}
-
-int GetLastError()
-{
-    int err;
-#ifdef _WIN32
-    err = WSAGetLastError();
-#else
-    err = errno;
-#endif
-    return err;
-}
-
-char* GetTimeString() {
-    /* get local time, without ms */
-    time_t utcDate;
-    time(&utcDate);
-	struct tm *localDate;
-    localDate = localtime(&utcDate);
-    /* get ms time */
-	struct timeval tv;
-	int tv_ms;
-	gettimeofday(&tv, NULL);
-	tv_ms = tv.tv_usec/1000;
-    
-	sprintf(timeStringBuffer, "%d-%d %d:%d:%d.%d", localDate->tm_mon+1, localDate->tm_mday, localDate->tm_hour, localDate->tm_min, localDate->tm_sec, tv_ms);
-    return (char*)&timeStringBuffer;
 }

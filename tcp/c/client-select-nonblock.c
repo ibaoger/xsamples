@@ -76,14 +76,14 @@ int main(int argc, char **argv)
         err = GetLastError();
         printf("%s create producter thread failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
-    
+
     sleep(3);
-    
+
     printf("%s force close select\n", GetTimeString());
-    
+
         close(g_uForceCloseFd[0]);
     printf("%s force close select\n", GetTimeString());
-    
+
     rc = pthread_join(thd, NULL);
     if (rc != 0) {
         err = GetLastError();
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 void *socketThread (void *argv)
 {
     printf("%s start socket thread\n", GetTimeString());
-    
+
     int rc;
     int err;
     int sock;
@@ -108,7 +108,7 @@ void *socketThread (void *argv)
         printf("%s create pipe failed (%d), %s\n", GetTimeString(), err, strerror(err));
     }
     printf("%s pipe (%d)\n", GetTimeString(), g_uForceCloseFd[0]);
-    
+
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(serverPort);
@@ -267,7 +267,7 @@ void *socketThread (void *argv)
                 close(sock);
                 return 0;
             }
-            
+
             sz = send(sock, buf, left, flags);
             err = GetLastError();
             if (sz == -1) {
@@ -283,7 +283,7 @@ void *socketThread (void *argv)
             left = left - sz;
             printf("%s send success (%d)\n", GetTimeString(), sz);
         }
-        
+
         /* wait for recv able */
         FD_ZERO(&socketRDfd);
         FD_ZERO(&socketWRfd);
@@ -318,7 +318,7 @@ void *socketThread (void *argv)
             close(sock);
             return 0;
         }
-        
+
         sz = recv(sock, buf, BUF_LEN, flags);
         if (sz == -1) {
             int err = GetLastError();
@@ -352,6 +352,22 @@ int GetLastError()
 #endif
     return err;
 }
+
+#ifdef _WIN32
+int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+    if (tv)
+    {
+        tv->tv_sec = 0;
+        tv->tv_usec = 0;
+        return -1;
+    }
+    DWORD tick = GetTickCount();
+    long ms = (long)(tick % 1000);
+    tv->tv_usec = ms * 1000;
+    return 0;
+}
+#endif /*_WIN32*/
 
 char* GetTimeString() {
     /* get local time, without ms */
