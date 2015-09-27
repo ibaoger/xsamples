@@ -33,12 +33,17 @@ int closesocket(int fd)
 #endif /*_WIN32*/
 
 char* get_time_string() {
+    /* get local time, without ms */
+    time_t utcDate;
+    time(&utcDate);
+    struct tm *localDate;
+    localDate = localtime(&utcDate);
     /* get ms time */
     struct timeval tv;
     gettimeofday(&tv, NULL);
     int tv_ms = tv.tv_usec / 1000;
     memset(time_string, 0, sizeof(time_string));
-    sprintf(time_string, "%s.%d", __TIME__, tv_ms);
+    sprintf(time_string, "%d:%d:%d.%d", localDate->tm_hour, localDate->tm_min, localDate->tm_sec, tv_ms);
     return (char*)&time_string;
 }
 
